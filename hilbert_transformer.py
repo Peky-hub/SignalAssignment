@@ -78,6 +78,7 @@ class HilbertTransformer:
         phase = np.unwrap(np.angle(analytic))
         return envelope, phase
 
+
     @staticmethod
     def instantaneous_frequency(phase: np.ndarray, sr: float) -> np.ndarray:
         """计算瞬时频率
