@@ -2,6 +2,9 @@ from hilbert_transformer import HilbertTransformer, HilbertModulator
 import numpy as np
 import soundfile as sf
 from librosa import load
+from pathlib import Path
+import matplotlib.pyplot as plt
+import scipy.signal as spsig
 
 def test_demod_quality(original: np.ndarray, demodulated: np.ndarray, delay_compensation: bool = True):
     """
@@ -52,5 +55,79 @@ def AWGN_Simulation():
     print(f"SNR: {result['post_snr_db']:.2f} dB")
     sf.write("outputs//Demodulated_AWGN.wav", awgn_signal, sr)
 
+def analyze_test_audio(audio_path: str = "TestAudio.wav"):
+    """Load TestAudio.wav and produce analysis plots:
+      - time-domain waveform
+      - power spectral density (Welch)
+      - instantaneous envelope and phase (Hilbert)
+      - instantaneous frequency
+
+    Plots are saved to `outputs/`.
+    """
+    signal, sr = load(audio_path, mono=True)
+    out_dir = Path("inputs")
+    out_dir.mkdir(parents=True, exist_ok=True)
+
+    sig = np.asarray(signal)
+    n = sig.shape[0]
+    times = np.arange(n) / float(sr)
+
+    # Time-domain waveform
+    fig, ax = plt.subplots(figsize=(10, 3))
+    ax.plot(times, sig, linewidth=0.5)
+    ax.set_xlabel("Time (s)")
+    ax.set_ylabel("Amplitude")
+    ax.set_title("Time-domain waveform")
+    fig.tight_layout()
+    time_path = out_dir / "time_domain.png"
+    fig.savefig(time_path, dpi=150)
+    plt.close(fig)
+
+    # Power spectral density (Welch)
+    f, Pxx = spsig.welch(sig, sr, nperseg=2048)
+    fig, ax = plt.subplots(figsize=(10, 3))
+    ax.plot(f, 10.0 * np.log10(Pxx + 1e-15))
+    ax.set_xlabel("Frequency (Hz)")
+    ax.set_ylabel("PSD (dB/Hz)")
+    ax.set_title("Power Spectral Density (Welch)")
+    fig.tight_layout()
+    psd_path = out_dir / "psd_welch.png"
+    fig.savefig(psd_path, dpi=150)
+    plt.close(fig)
+
+    # Instantaneous envelope and phase via Hilbert
+    ht = HilbertTransformer()
+    analytic = ht.analytic_signal(sig)
+    envelope, phase = ht.envelope_phase(analytic)
+
+    fig, (ax1, ax2) = plt.subplots(2, 1, sharex=True, figsize=(10, 6))
+    ax1.plot(times, envelope, linewidth=0.5)
+    ax1.set_ylabel("Envelope")
+    ax2.plot(times, phase, linewidth=0.5)
+    ax2.set_ylabel("Phase (rad)")
+    ax2.set_xlabel("Time (s)")
+    fig.tight_layout()
+    env_phase_path = out_dir / "envelope_phase.png"
+    fig.savefig(env_phase_path, dpi=150)
+    plt.close(fig)
+
+    # Instantaneous frequency
+    inst_freq = ht.instantaneous_frequency(phase, sr)
+    fig, ax = plt.subplots(figsize=(10, 3))
+    ax.plot(times, inst_freq, linewidth=0.5)
+    ax.set_xlabel("Time (s)")
+    ax.set_ylabel("Instantaneous frequency (Hz)")
+    ax.set_title("Instantaneous Frequency")
+    fig.tight_layout()
+    inst_path = out_dir / "instantaneous_frequency.png"
+    fig.savefig(inst_path, dpi=150)
+    plt.close(fig)
+
+    print(f"Wrote: {time_path}")
+    print(f"Wrote: {psd_path}")
+    print(f"Wrote: {env_phase_path}")
+    print(f"Wrote: {inst_path}")
+
 if __name__ == "__main__":
-    AWGN_Simulation()
+    # AWGN_Simulation()
+    analyze_test_audio()
